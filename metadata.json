@@ -1,0 +1,6 @@
+{
+  "name": "SkeuoNotes",
+  "description": "A classic skeuomorphic-style notepad app with realistic ruled paper, textured desk margins, pressable 3D buttons, and local Room persistence.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
