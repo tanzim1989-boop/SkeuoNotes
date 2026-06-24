@@ -11,8 +11,8 @@ android {
   compileSdk = 36
 
   defaultConfig {
-    applicationId = "com.aistudio.skeuonotes.zwnqt"
-    minSdk = 23
+    applicationId = "com.aistudio.urbanplayer.zwnqt"
+    minSdk = 21
     targetSdk = 35
     versionCode = 1
     versionName = "1.0"
@@ -44,6 +44,7 @@ android {
       signingConfig = signingConfigs.getByName("release")
     }
     debug {
+      signingConfig = signingConfigs.getByName("debugConfig")
     }
   }
   compileOptions {
@@ -68,7 +69,7 @@ secrets {
 // This makes it easy to add them back in the future if needed.
 dependencies {
   implementation(platform(libs.androidx.compose.bom))
-  implementation(platform(libs.firebase.bom))
+  // implementation(platform(libs.firebase.bom))
   // implementation(libs.accompanist.permissions)
   implementation(libs.androidx.activity.compose)
   // implementation(libs.androidx.camera.camera2)
@@ -76,7 +77,7 @@ dependencies {
   // implementation(libs.androidx.camera.lifecycle)
   // implementation(libs.androidx.camera.view)
   implementation(libs.androidx.compose.material.icons.core)
-  // implementation(libs.androidx.compose.material.icons.extended)
+  implementation(libs.androidx.compose.material.icons.extended)
   implementation(libs.androidx.compose.material3)
   implementation(libs.androidx.compose.ui)
   implementation(libs.androidx.compose.ui.graphics)
@@ -89,9 +90,9 @@ dependencies {
   // implementation(libs.androidx.navigation.compose)
   implementation(libs.androidx.room.ktx)
   implementation(libs.androidx.room.runtime)
-  // implementation(libs.coil.compose)
+  implementation(libs.coil.compose)
   implementation(libs.converter.moshi)
-  implementation(libs.firebase.ai)
+  // implementation(libs.firebase.ai)
   implementation(libs.kotlinx.coroutines.android)
   implementation(libs.kotlinx.coroutines.core)
   implementation(libs.logging.interceptor)
@@ -118,3 +119,22 @@ dependencies {
   "ksp"(libs.androidx.room.compiler)
   "ksp"(libs.moshi.kotlin.codegen)
 }
+
+tasks.register("copyApk") {
+    dependsOn("assembleDebug")
+    doLast {
+        val apkFile = file("${layout.buildDirectory.get()}/outputs/apk/debug/app-debug.apk")
+        if (apkFile.exists()) {
+            val destDir1 = file("${rootDir}/.build-outputs")
+            val destDir2 = file("${rootDir}/APK_DOWNLOAD")
+            destDir1.mkdirs()
+            destDir2.mkdirs()
+            apkFile.copyTo(file("${destDir1}/app-debug.apk"), overwrite = true)
+            apkFile.copyTo(file("${destDir2}/app-debug.apk"), overwrite = true)
+            println("Successfully copied APK to .build-outputs and APK_DOWNLOAD")
+        } else {
+            println("APK file not found at ${apkFile.absolutePath}")
+        }
+    }
+}
+

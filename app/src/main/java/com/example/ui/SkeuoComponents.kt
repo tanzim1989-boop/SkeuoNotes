@@ -1,7 +1,6 @@
 package com.example.ui
 
-import androidx.compose.animation.core.animateDpAsState
-import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.*
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -9,11 +8,13 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.remember
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -22,9 +23,8 @@ import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
-import androidx.compose.ui.graphics.Brush
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.graphics.*
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
@@ -32,422 +32,578 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.foundation.Image
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.foundation.gestures.detectDragGestures
+import androidx.compose.foundation.gestures.detectTapGestures
+import coil.compose.AsyncImage
+import java.io.File
+import com.example.R
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
+import kotlin.random.Random
 
-// --- COLOR PALETTE FOR SKEUOMORPHISM ---
-object SkeuoColor {
-    // Desk colors (rich wood / dark leather)
-    val DeskBg = Color(0xFF2C1E14)
-    val DeskLight = Color(0xFF422E1F)
-    val DeskDark = Color(0xFF160F09)
-    val StitchColor = Color(0xFF5D4037)
+import com.example.ui.theme.PlayerTheme
 
-    // Paper Base Colors (Yellow pads, Warm Whites, Blue notepad)
-    val StickyYellow = Color(0xFFFFF9C4)
-    val StickyYellowDark = Color(0xFFFFF176)
-    val PaperLineBlue = Color(0xFFB3E5FC)
-    val PaperMarginRed = Color(0xFFFF8A80)
+val LocalPlayerTheme = staticCompositionLocalOf { PlayerTheme.VISTA_AERO }
 
-    val PaperBlue = Color(0xFFE3F2FD)
-    val PaperBlueDark = Color(0xFF90CAF9)
+// --- WINDOWS VISTA AERO COLOR SYSTEM ---
+object AeroColor {
+    // Frosted Glass Colors
+    val GlassBase = Color(0x2E101D2C) // Translucent deep teal-gray
+    val GlassLight = Color(0x3BFFFFFF) // White glass highlight
+    val GlassDark = Color(0x8C000000) // Translucent dark borders
+    val GlassHighlight = Color(0x1A64B5F6) // Soft Aero blue tint
+    
+    // Glowing Vista Colors
+    val VistaCyan = Color(0xFF00E5FF) // Aqua blue glow
+    val VistaBlue = Color(0xFF0091EA) // Deep Aero blue
+    val VistaGreen = Color(0xFF00E676) // Active playing green
+    val VistaYellow = Color(0xFFFFD600) // Visualizer peaks
+    val VistaOrange = Color(0xFFFF6D00) // Warning / Peak levels
+    val VistaRed = Color(0xFFD50000)
 
-    val PaperGreen = Color(0xFFE8F5E9)
-    val PaperGreenDark = Color(0xFFA5D6A7)
-
-    val PaperPink = Color(0xFFFCE4EC)
-    val PaperPinkDark = Color(0xFFF48FB1)
-
-    val PaperWhite = Color(0xFFFFFDF9)
-    val PaperWhiteDark = Color(0xFFECEFF1)
-
-    // Button shading
-    val HighlightWhite = Color(0x60FFFFFF)
-    val ShadowDark = Color(0x70000000)
-
-    // Pushpin colors
-    val PinRed = Color(0xFFE53935)
-    val PinRedDark = Color(0xFFB71C1C)
-    val PinBlue = Color(0xFF1E88E5)
-    val PinBlueDark = Color(0xFF0D47A1)
-    val PinMetal = Color(0xFFB0BEC5)
-    val PinMetalDark = Color(0xFF546E7A)
+    // Aurora Wallpaper Colors (Classic Vista background)
+    val AuroraTeal = Color(0xFF004D40)
+    val AuroraBlue = Color(0xFF0D47A1)
+    val AuroraPurple = Color(0xFF311B92)
+    val AuroraGreen = Color(0xFF1B5E20)
+    val AuroraBlack = Color(0xFF0A0F14)
 }
 
 /**
- * 1. Rich Desk Backdrop with leather stitch and radial lighting
+ * 1. Windows Vista Aurora Wallpaper Background
+ * Draws a gorgeous, authentic Windows Vista desktop wallpaper with flowing glassy rays.
  */
 @Composable
-fun SkeuomorphicDeskBackground(
+fun AeroAuroraBackground(
+    backgroundType: Int = 0,
+    customBackgroundPath: String? = null,
     modifier: Modifier = Modifier,
     content: @Composable BoxScope.() -> Unit
 ) {
+    val theme = LocalPlayerTheme.current
     Box(
         modifier = modifier
             .fillMaxSize()
-            .drawBehind {
-                // Draw rich wood/leather desk gradient
-                drawRect(
-                    brush = Brush.radialGradient(
-                        colors = listOf(SkeuoColor.DeskLight, SkeuoColor.DeskBg, SkeuoColor.DeskDark),
-                        center = Offset(size.width / 2, size.height / 3),
-                        radius = size.maxDimension * 0.8f
-                    )
-                )
+            .then(
+                if (backgroundType == 0) {
+                    Modifier.drawBehind {
+                        // Main dark background
+                        drawRect(theme.backgroundBase)
 
-                // Add a cute border stitching effect to simulate a real desk blotter!
-                val inset = 16.dp.toPx()
-                val width = size.width - inset * 2
-                val height = size.height - inset * 2
-
-                // Draw leather stitching lines (dashed)
-                drawRoundRect(
-                    color = SkeuoColor.StitchColor,
-                    topLeft = Offset(inset, inset),
-                    size = Size(width, height),
-                    cornerRadius = CornerRadius(12.dp.toPx()),
-                    style = Stroke(
-                        width = 2.dp.toPx(),
-                        pathEffect = androidx.compose.ui.graphics.PathEffect.dashPathEffect(
-                            floatArrayOf(12f, 8f), 0f
+                        // Flowing Radial Glow 1
+                        drawRect(
+                            brush = Brush.radialGradient(
+                                colors = listOf(theme.radial1, Color.Transparent),
+                                center = Offset(size.width * 0.1f, size.height * 0.2f),
+                                radius = size.maxDimension * 0.7f
+                            )
                         )
-                    )
-                )
-            },
-        content = content
-    )
+
+                        // Flowing Radial Glow 2
+                        drawRect(
+                            brush = Brush.radialGradient(
+                                colors = listOf(theme.radial2, Color.Transparent),
+                                center = Offset(size.width * 0.9f, size.height * 0.7f),
+                                radius = size.maxDimension * 0.8f
+                            )
+                        )
+
+                        // Flowing Radial Glow 3
+                        drawRect(
+                            brush = Brush.radialGradient(
+                                colors = listOf(theme.radial3, Color.Transparent),
+                                center = Offset(size.width * 0.5f, size.height * 0.9f),
+                                radius = size.maxDimension * 0.6f
+                            )
+                        )
+
+                        // Aurora light sweeps (glowing curves)
+                        val path1 = Path().apply {
+                            moveTo(0f, size.height * 0.4f)
+                            cubicTo(
+                                size.width * 0.3f, size.height * 0.2f,
+                                size.width * 0.7f, size.height * 0.6f,
+                                size.width, size.height * 0.3f
+                            )
+                        }
+                        drawPath(
+                            path = path1,
+                            brush = Brush.linearGradient(
+                                colors = listOf(theme.pathSheen, theme.primaryGlow.copy(alpha = 0.15f), Color.Transparent),
+                                start = Offset(0f, size.height * 0.4f),
+                                end = Offset(size.width, size.height * 0.3f)
+                            ),
+                            style = Stroke(width = 80.dp.toPx(), cap = StrokeCap.Round)
+                        )
+                    }
+                } else {
+                    Modifier.background(Color.Black)
+                }
+            )
+    ) {
+        if (backgroundType == 1) {
+            Image(
+                painter = painterResource(id = R.drawable.img_bg_cyber_1782298148407),
+                contentDescription = "Cyberpunk Background Wallpaper",
+                modifier = Modifier.fillMaxSize(),
+                contentScale = ContentScale.Crop
+            )
+        } else if (backgroundType == 2) {
+            Image(
+                painter = painterResource(id = R.drawable.img_bg_cosmic_1782298167295),
+                contentDescription = "Cosmic Background Wallpaper",
+                modifier = Modifier.fillMaxSize(),
+                contentScale = ContentScale.Crop
+            )
+        } else if (backgroundType == 3 && customBackgroundPath != null) {
+            AsyncImage(
+                model = File(customBackgroundPath),
+                contentDescription = "Custom Background Wallpaper",
+                modifier = Modifier.fillMaxSize(),
+                contentScale = ContentScale.Crop
+            )
+        }
+
+        Box(modifier = Modifier.fillMaxSize(), content = content)
+    }
 }
 
 /**
- * 2. Skeuomorphic Paper Component
- * Draws ruled legal pad lines, a red margin line, a torn edge effect at the top or bottom, and 3D stacking shadows.
+ * 2. Aero Glass Window Panel
+ * Generates the classic Vista glassy frame, double highlight borders, and a title bar.
  */
 @Composable
-fun SkeuomorphicPaper(
+fun AeroGlassWindow(
+    title: String,
     modifier: Modifier = Modifier,
-    paperColor: Color = SkeuoColor.StickyYellow,
-    hasLines: Boolean = true,
-    hasSpiral: Boolean = false,
-    onClick: (() -> Unit)? = null,
+    onCloseClick: (() -> Unit)? = null,
     content: @Composable ColumnScope.() -> Unit
 ) {
-    val baseModifier = if (onClick != null) {
-        modifier.clickable(
-            interactionSource = remember { MutableInteractionSource() },
-            indication = null,
-            onClick = onClick
-        )
-    } else {
-        modifier
-    }
-
-    Box(
-        modifier = baseModifier
-            .padding(8.dp)
-            // Multi-layered stack shadow
+    val theme = LocalPlayerTheme.current
+    Column(
+        modifier = modifier
+            .padding(12.dp)
             .drawBehind {
-                val shadowOffset1 = 4.dp.toPx()
-                val shadowOffset2 = 8.dp.toPx()
-
-                // Bottom shadow page layer
+                val r = 16.dp.toPx()
+                
+                // 1. Soft Window Shadow
                 drawRoundRect(
-                    color = Color.Black.copy(alpha = 0.15f),
-                    topLeft = Offset(shadowOffset2, shadowOffset2),
+                    color = Color.Black.copy(alpha = 0.5f),
+                    topLeft = Offset(4.dp.toPx(), 6.dp.toPx()),
                     size = size,
-                    cornerRadius = CornerRadius(10.dp.toPx())
+                    cornerRadius = CornerRadius(r)
                 )
 
-                // Middle shadow page layer
+                // 2. Main Glass Translucent Body (Extremely transparent frosted glass with blue tint)
                 drawRoundRect(
-                    color = Color.Black.copy(alpha = 0.2f),
-                    topLeft = Offset(shadowOffset1, shadowOffset1),
-                    size = size,
-                    cornerRadius = CornerRadius(8.dp.toPx())
-                )
-
-                // Background paper body
-                drawRoundRect(
-                    color = paperColor,
-                    topLeft = Offset(0f, 0f),
-                    size = size,
-                    cornerRadius = CornerRadius(6.dp.toPx())
-                )
-
-                // Lined paper rules (Blue horizontal lines)
-                if (hasLines) {
-                    val lineSpacing = 28.dp.toPx()
-                    val marginLineX = 40.dp.toPx()
-                    val totalLines = (size.height / lineSpacing).toInt()
-
-                    for (i in 1..totalLines) {
-                        val y = i * lineSpacing
-                        // Draw horizontal rule line
-                        drawLine(
-                            color = SkeuoColor.PaperLineBlue,
-                            start = Offset(0f, y),
-                            end = Offset(size.width, y),
-                            strokeWidth = 1.dp.toPx()
+                    brush = Brush.verticalGradient(
+                        colors = listOf(
+                            Color(0x22FFFFFF), // Super clear frosted top
+                            Color(0x1F1A2F4C), // Translucent steel blue middle
+                            Color(0x1A0D1726)  // Very light translucent dark bottom
                         )
-                    }
+                    ),
+                    topLeft = Offset.Zero,
+                    size = size,
+                    cornerRadius = CornerRadius(r)
+                )
 
-                    // Left vertical margin line (Red)
-                    drawLine(
-                        color = SkeuoColor.PaperMarginRed,
-                        start = Offset(marginLineX, 0f),
-                        end = Offset(marginLineX, size.height),
-                        strokeWidth = 1.5f.dp.toPx()
+                // 3. Diagonal Gloss Glare (reflection sweep)
+                val glarePath = Path().apply {
+                    moveTo(0f, 0f)
+                    lineTo(size.width * 0.45f, 0f)
+                    lineTo(0f, size.height * 0.7f)
+                    close()
+                }
+                drawPath(
+                    path = glarePath,
+                    brush = Brush.linearGradient(
+                        colors = listOf(Color(0x1EFFFFFF), Color(0x00FFFFFF)),
+                        start = Offset(0f, 0f),
+                        end = Offset(size.width * 0.45f, size.height * 0.7f)
                     )
-                }
+                )
 
-                // If spiral-bound, draw binder clip holes at the top
-                if (hasSpiral) {
-                    val holeRadius = 5.dp.toPx()
-                    val holeSpacing = 40.dp.toPx()
-                    val startX = 30.dp.toPx()
-                    val y = 20.dp.toPx()
-                    var currentX = startX
-                    while (currentX < size.width - 20.dp.toPx()) {
-                        drawCircle(
-                            color = SkeuoColor.DeskBg,
-                            radius = holeRadius,
-                            center = Offset(currentX, y)
-                        )
-                        currentX += holeSpacing
-                    }
-                }
+                // Horizontal sheen line below title bar
+                val titleBarHeight = 44.dp.toPx()
+                drawLine(
+                    color = Color(0x22FFFFFF),
+                    start = Offset(0f, titleBarHeight),
+                    end = Offset(size.width, titleBarHeight),
+                    strokeWidth = 1.dp.toPx()
+                )
+
+                // 4. White Inner Highlight Edge (Double-refraction look)
+                drawRoundRect(
+                    color = Color(0x40FFFFFF),
+                    topLeft = Offset(1.dp.toPx(), 1.dp.toPx()),
+                    size = Size(size.width - 2.dp.toPx(), size.height - 2.dp.toPx()),
+                    cornerRadius = CornerRadius(r - 1.dp.toPx()),
+                    style = Stroke(width = 1.2.dp.toPx())
+                )
+
+                // 5. Dark Outer Border
+                drawRoundRect(
+                    color = Color(0x80000000),
+                    topLeft = Offset.Zero,
+                    size = size,
+                    cornerRadius = CornerRadius(r),
+                    style = Stroke(width = 1.dp.toPx())
+                )
             }
-            .padding(
-                start = if (hasLines) 48.dp else 16.dp,
-                end = 16.dp,
-                top = if (hasSpiral) 40.dp else 16.dp,
-                bottom = 16.dp
-            )
+            .padding(3.dp) // Offset content inside borders
     ) {
+        // Window Title Bar
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(44.dp)
+                .padding(horizontal = 16.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            // Little glowing Vista-style round app emblem
+            Box(
+                modifier = Modifier
+                    .size(20.dp)
+                    .drawBehind {
+                        drawCircle(
+                            brush = Brush.radialGradient(
+                                colors = listOf(theme.primaryGlow, theme.secondaryGlow),
+                                center = Offset(size.width / 3, size.height / 3),
+                                radius = size.width * 0.8f
+                            )
+                        )
+                        drawCircle(
+                            color = Color.White.copy(alpha = 0.5f),
+                            radius = 3.dp.toPx(),
+                            center = Offset(size.width * 0.35f, size.height * 0.35f)
+                        )
+                    }
+            )
+
+            Spacer(modifier = Modifier.width(10.dp))
+
+            // Text with glass reflection and Aero Glowing Halo (2010s vibe)
+            Box(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = title,
+                    color = Color.White,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 14.sp,
+                    fontFamily = FontFamily.SansSerif,
+                    style = androidx.compose.ui.text.TextStyle(
+                        shadow = androidx.compose.ui.graphics.Shadow(
+                            color = theme.primaryGlow.copy(alpha = 0.85f),
+                            offset = Offset(0f, 0f),
+                            blurRadius = 14f
+                        )
+                    )
+                )
+            }
+
+            // Glassy Window Controls (Minimize, Maximize, Close red glow)
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                // Minimize Button
+                AeroWindowControlMiniButton()
+                // Close Button (Iconic Vista glossy red)
+                AeroWindowControlCloseButton(onClick = onCloseClick)
+            }
+        }
+
+        // Window Inner Content Layout
         Column(
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier
+                .fillMaxWidth()
+                .weight(1f)
+                .padding(12.dp),
             content = content
         )
     }
 }
 
 /**
- * 3. Skeuomorphic Spiral Binding Component
- * Connects the page holes to the top header with glossy metallic coils.
+ * 2a. Glassy Window Control Buttons
  */
 @Composable
-fun SkeuomorphicSpiralBinding(
-    modifier: Modifier = Modifier
-) {
-    Canvas(
-        modifier = modifier
-            .fillMaxWidth()
-            .height(32.dp)
-    ) {
-        val loopSpacing = 40.dp.toPx()
-        val startX = 30.dp.toPx()
-        val loopWidth = 12.dp.toPx()
-        val loopHeight = 28.dp.toPx()
-
-        var currentX = startX
-        while (currentX < size.width - 20.dp.toPx()) {
-            // Draw a realistic shiny silver coil link
-            // Bottom shadow of coil
-            drawRoundRect(
-                color = Color.Black.copy(alpha = 0.4f),
-                topLeft = Offset(currentX - 2.dp.toPx(), 2.dp.toPx()),
-                size = Size(loopWidth, loopHeight),
-                cornerRadius = CornerRadius(4.dp.toPx())
-            )
-
-            // Outer coil body (metallic brush)
-            drawRoundRect(
-                brush = Brush.linearGradient(
-                    colors = listOf(
-                        SkeuoColor.PinMetalDark,
-                        SkeuoColor.PinMetal,
-                        Color.White,
-                        SkeuoColor.PinMetalDark
+fun AeroWindowControlMiniButton() {
+    Box(
+        modifier = Modifier
+            .size(26.dp, 16.dp)
+            .drawBehind {
+                drawRoundRect(
+                    brush = Brush.verticalGradient(
+                        colors = listOf(Color(0x33FFFFFF), Color(0x11FFFFFF))
                     ),
-                    start = Offset(currentX, 0f),
-                    end = Offset(currentX + loopWidth, loopHeight)
-                ),
-                topLeft = Offset(currentX, 0f),
-                size = Size(loopWidth, loopHeight),
-                cornerRadius = CornerRadius(4.dp.toPx())
-            )
+                    cornerRadius = CornerRadius(2.dp.toPx())
+                )
+                drawRoundRect(
+                    color = Color(0x44FFFFFF),
+                    style = Stroke(width = 1.dp.toPx()),
+                    cornerRadius = CornerRadius(2.dp.toPx())
+                )
+                // Minimize Dash
+                drawRect(
+                    color = Color.White,
+                    topLeft = Offset(size.width * 0.3f, size.height * 0.6f),
+                    size = Size(size.width * 0.4f, 2.dp.toPx())
+                )
+            }
+    )
+}
 
-            currentX += loopSpacing
-        }
-    }
+@Composable
+fun AeroWindowControlCloseButton(onClick: (() -> Unit)? = null) {
+    Box(
+        modifier = Modifier
+            .size(32.dp, 16.dp)
+            .clip(RoundedCornerShape(2.dp))
+            .clickable(enabled = onClick != null, onClick = onClick ?: {})
+            .drawBehind {
+                drawRoundRect(
+                    brush = Brush.verticalGradient(
+                        colors = listOf(Color(0xFFE53935), Color(0xFFB71C1C))
+                    )
+                )
+                // Double white gloss reflections
+                drawRoundRect(
+                    color = Color(0x60FFFFFF),
+                    style = Stroke(width = 1.dp.toPx()),
+                    cornerRadius = CornerRadius(2.dp.toPx())
+                )
+                // "X" character simulation
+                drawLine(
+                    color = Color.White,
+                    start = Offset(size.width * 0.4f, size.height * 0.3f),
+                    end = Offset(size.width * 0.6f, size.height * 0.7f),
+                    strokeWidth = 1.5f.dp.toPx()
+                )
+                drawLine(
+                    color = Color.White,
+                    start = Offset(size.width * 0.6f, size.height * 0.3f),
+                    end = Offset(size.width * 0.4f, size.height * 0.7f),
+                    strokeWidth = 1.5f.dp.toPx()
+                )
+            }
+    )
 }
 
 /**
- * 4. Realistic Pushpin component
- * Displays a 3D red or blue pushpin with a realistic transparent drop shadow.
+ * 3. Iconic Glowing Blue Play/Pause Orb Button
+ * Authentic Windows Media Player 11 styling with spherical shading, crescent glint, and cyan outer glow.
  */
 @Composable
-fun SkeuomorphicPushpin(
-    modifier: Modifier = Modifier,
-    color: Color = SkeuoColor.PinRed,
-    colorDark: Color = SkeuoColor.PinRedDark
-) {
-    Canvas(
-        modifier = modifier
-            .size(36.dp)
-    ) {
-        val centerX = size.width / 2
-        val centerY = size.height / 3
-
-        // 1. Cast shadow of pushpin (soft and offset down and right)
-        val shadowOffset = Offset(10.dp.toPx(), 12.dp.toPx())
-        val pinShadowPath = Path().apply {
-            moveTo(centerX + shadowOffset.x, centerY + shadowOffset.y)
-            lineTo(centerX + shadowOffset.x - 3.dp.toPx(), centerY + shadowOffset.y + 12.dp.toPx()) // Needle shadow
-            lineTo(centerX + shadowOffset.x + 3.dp.toPx(), centerY + shadowOffset.y + 12.dp.toPx())
-            close()
-        }
-        drawPath(pinShadowPath, Color.Black.copy(alpha = 0.35f))
-        drawCircle(
-            color = Color.Black.copy(alpha = 0.4f),
-            radius = 7.dp.toPx(),
-            center = Offset(centerX + shadowOffset.x, centerY + shadowOffset.y - 2.dp.toPx())
-        )
-
-        // 2. Silver metal needle (point)
-        val needlePath = Path().apply {
-            moveTo(centerX, centerY)
-            lineTo(centerX - 1.5f.dp.toPx(), centerY + 14.dp.toPx())
-            lineTo(centerX + 1.5f.dp.toPx(), centerY + 14.dp.toPx())
-            close()
-        }
-        drawPath(needlePath, SkeuoColor.PinMetal)
-        drawPath(needlePath, SkeuoColor.PinMetalDark, style = Stroke(0.5f.dp.toPx()))
-
-        // 3. Plastic Pin Body
-        // Pin head top circle
-        drawCircle(
-            brush = Brush.radialGradient(
-                colors = listOf(Color.White, color, colorDark),
-                center = Offset(centerX - 2.dp.toPx(), centerY - 5.dp.toPx()),
-                radius = 7.dp.toPx()
-            ),
-            radius = 7.dp.toPx(),
-            center = Offset(centerX, centerY - 4.dp.toPx())
-        )
-
-        // Pin collar/base
-        val collarWidth = 14.dp.toPx()
-        val collarHeight = 5.dp.toPx()
-        drawRoundRect(
-            brush = Brush.horizontalGradient(
-                colors = listOf(colorDark, color, Color.White, colorDark)
-            ),
-            topLeft = Offset(centerX - collarWidth / 2, centerY),
-            size = Size(collarWidth, collarHeight),
-            cornerRadius = CornerRadius(2.dp.toPx())
-        )
-
-        // Pin grip handle (middle block)
-        val gripWidth = 10.dp.toPx()
-        val gripHeight = 8.dp.toPx()
-        drawRoundRect(
-            brush = Brush.horizontalGradient(
-                colors = listOf(colorDark, color, Color.White, colorDark)
-            ),
-            topLeft = Offset(centerX - gripWidth / 2, centerY - gripHeight),
-            size = Size(gripWidth, gripHeight),
-            cornerRadius = CornerRadius(1.dp.toPx())
-        )
-    }
-}
-
-/**
- * 5. Skeuomorphic Beveled Tactile Button
- * Looks like a real clicky physical plastic key or a wooden stamp button.
- * Physically sinks down slightly when pressed and updates the beveled edge thickness.
- */
-@Composable
-fun SkeuomorphicButton(
+fun AeroOrbButton(
     onClick: () -> Unit,
+    isPlaying: Boolean,
     modifier: Modifier = Modifier,
-    baseColor: Color = Color(0xFFD7CCC8), // Soft classic warm wood-plastic
-    darkColor: Color = Color(0xFF8D6E63),
-    lightColor: Color = Color(0xFFEFEBE9),
-    contentColor: Color = Color(0xFF4E342E),
-    isEnabled: Boolean = true,
-    height: Dp = 48.dp,
-    content: @Composable RowScope.() -> Unit
+    size: Dp = 68.dp
 ) {
+    val theme = LocalPlayerTheme.current
     val interactionSource = remember { MutableInteractionSource() }
     val isPressed by interactionSource.collectIsPressedAsState()
 
-    // Tactile animations
-    val offsetAnimation by animateDpAsState(
-        targetValue = if (isPressed && isEnabled) 3.dp else 0.dp,
-        label = "ButtonPressOffset"
+    val orbScale by animateFloatAsState(
+        targetValue = if (isPressed) 0.92f else 1.0f,
+        label = "OrbScale"
     )
-    val shadowOpacity by animateFloatAsState(
-        targetValue = if (isPressed && isEnabled) 0.15f else 0.35f,
-        label = "ButtonShadowOpacity"
+
+    val glowAlpha by rememberInfiniteTransition(label = "GlowLoop").animateFloat(
+        initialValue = 0.5f,
+        targetValue = 0.9f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(1200, easing = LinearEasing),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "OrbGlow"
     )
 
     Box(
         modifier = modifier
-            .height(height)
-            .padding(horizontal = 4.dp)
-            // Outer 3D Drop Shadow on desk/paper
-            .drawBehind {
-                if (isEnabled) {
-                    val shadowOffset = if (isPressed) 2.dp.toPx() else 5.dp.toPx()
-                    drawRoundRect(
-                        color = Color.Black.copy(alpha = shadowOpacity),
-                        topLeft = Offset(shadowOffset, shadowOffset),
-                        size = size,
-                        cornerRadius = CornerRadius(8.dp.toPx())
-                    )
-                }
+            .size(size)
+            .graphicsLayer {
+                scaleX = orbScale
+                scaleY = orbScale
             }
-            // Sinking Offset
-            .offset(y = offsetAnimation, x = offsetAnimation)
-            .clip(RoundedCornerShape(8.dp))
-            .background(baseColor)
-            // Bevel edges (light top, dark bottom)
+            // Glow backdrop
             .drawBehind {
-                val bevelSize = 2.dp.toPx()
-                // Top Highlight (beveled)
-                drawLine(
-                    color = if (isPressed) darkColor else lightColor,
-                    start = Offset(0f, bevelSize / 2),
-                    end = Offset(size.width, bevelSize / 2),
-                    strokeWidth = bevelSize
-                )
-                // Left Highlight
-                drawLine(
-                    color = if (isPressed) darkColor else lightColor,
-                    start = Offset(bevelSize / 2, 0f),
-                    end = Offset(bevelSize / 2, size.height),
-                    strokeWidth = bevelSize
-                )
-                // Bottom Shadow
-                drawLine(
-                    color = if (isPressed) lightColor else darkColor,
-                    start = Offset(0f, size.height - bevelSize / 2),
-                    end = Offset(size.width, size.height - bevelSize / 2),
-                    strokeWidth = bevelSize
-                )
-                // Right Shadow
-                drawLine(
-                    color = if (isPressed) lightColor else darkColor,
-                    start = Offset(size.width - bevelSize / 2, 0f),
-                    end = Offset(size.width - bevelSize / 2, size.height),
-                    strokeWidth = bevelSize
+                val glowRadius = this.size.width * 0.6f
+                drawCircle(
+                    brush = Brush.radialGradient(
+                        colors = listOf(
+                            theme.primaryGlow.copy(alpha = if (isPlaying) glowAlpha else 0.4f),
+                            Color.Transparent
+                        )
+                    ),
+                    radius = glowRadius,
+                    center = Offset(this.size.width / 2, this.size.height / 2)
                 )
             }
+            .clip(CircleShape)
             .clickable(
                 interactionSource = interactionSource,
                 indication = null,
-                enabled = isEnabled,
                 onClick = onClick
             )
-            .padding(horizontal = 16.dp),
+            .drawBehind {
+                val r = this.size.width / 2
+
+                // 1. Bottom Dark Rim Base
+                drawCircle(Color(0xFF0D1B2A))
+
+                // 2. Spherical Deep Aqua Gradient
+                drawCircle(
+                    brush = Brush.radialGradient(
+                        colors = listOf(
+                            Color(0xFF00E5FF), // Super cyan center
+                            Color(0xFF0091EA), // Rich royal blue
+                            Color(0xFF01579B), // Dark outer blue
+                            Color(0xFF0A141D)  // Dark rim edge
+                        ),
+                        center = Offset(r, r),
+                        radius = r
+                    )
+                )
+
+                // 3. Highlight Crescent Glint (Creates the 3D spherical glass look on top)
+                val glossPath = Path().apply {
+                    addOval(
+                        androidx.compose.ui.geometry.Rect(
+                            left = r * 0.25f,
+                            top = r * 0.08f,
+                            right = r * 1.75f,
+                            bottom = r * 0.9f
+                        )
+                    )
+                }
+                drawPath(
+                    path = glossPath,
+                    brush = Brush.verticalGradient(
+                        colors = listOf(Color(0xCCFFFFFF), Color(0x00FFFFFF)),
+                        startY = r * 0.08f,
+                        endY = r * 0.9f
+                    )
+                )
+
+                // 4. Subtle bottom reflected light
+                drawCircle(
+                    brush = Brush.radialGradient(
+                        colors = listOf(Color(0x5500E5FF), Color.Transparent),
+                        center = Offset(r, r * 1.7f),
+                        radius = r * 0.6f
+                    )
+                )
+
+                // 5. Hard Highlight Line at the very top edge
+                drawCircle(
+                    color = Color.White.copy(alpha = 0.4f),
+                    radius = r - 1.dp.toPx(),
+                    style = Stroke(width = 1.dp.toPx())
+                )
+            },
+        contentAlignment = Alignment.Center
+    ) {
+        // Play / Pause Icon with glassy reflection
+        if (isPlaying) {
+            // Pause columns (WMP style metallic pill bars)
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(6.dp, 20.dp)
+                        .background(Color.White, RoundedCornerShape(1.dp))
+                )
+                Box(
+                    modifier = Modifier
+                        .size(6.dp, 20.dp)
+                        .background(Color.White, RoundedCornerShape(1.dp))
+                )
+            }
+        } else {
+            // Play Arrow
+            Icon(
+                imageVector = Icons.Filled.PlayArrow,
+                contentDescription = "Play",
+                tint = Color.White,
+                modifier = Modifier
+                    .size(28.dp)
+                    .offset(x = 2.dp)
+            )
+        }
+    }
+}
+
+/**
+ * 4. Rectangular Glassy Button
+ * Perfectly matches WMP 11 smaller action items with subtle click responses.
+ */
+@Composable
+fun AeroButton(
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    content: @Composable RowScope.() -> Unit
+) {
+    val theme = LocalPlayerTheme.current
+    val interactionSource = remember { MutableInteractionSource() }
+    val isPressed by interactionSource.collectIsPressedAsState()
+
+    val clickOffsetY by animateDpAsState(
+        targetValue = if (isPressed) 1.dp else 0.dp,
+        label = "AeroBtnPress"
+    )
+
+    Box(
+        modifier = modifier
+            .height(38.dp)
+            .offset(y = clickOffsetY)
+            .drawBehind {
+                val r = 6.dp.toPx()
+                // Glass Base
+                drawRoundRect(
+                    brush = Brush.verticalGradient(
+                        colors = listOf(Color(0x40FFFFFF), Color(0x10FFFFFF))
+                    ),
+                    cornerRadius = CornerRadius(r)
+                )
+                // Glass gloss reflection
+                val reflectHeight = size.height * 0.45f
+                drawRoundRect(
+                    brush = Brush.verticalGradient(
+                        colors = listOf(Color(0x22FFFFFF), Color(0x00FFFFFF))
+                    ),
+                    size = Size(size.width, reflectHeight),
+                    cornerRadius = CornerRadius(r, r)
+                )
+                // Glow on pressed
+                if (isPressed) {
+                    drawRoundRect(
+                        color = theme.primaryGlow.copy(alpha = 0.2f),
+                        cornerRadius = CornerRadius(r)
+                    )
+                }
+                // Border lines
+                drawRoundRect(
+                    color = Color(0x30FFFFFF),
+                    style = Stroke(width = 1.dp.toPx()),
+                    cornerRadius = CornerRadius(r)
+                )
+                drawRoundRect(
+                    color = Color(0x20000000),
+                    style = Stroke(width = 1.dp.toPx()),
+                    cornerRadius = CornerRadius(r)
+                )
+            }
+            .clip(RoundedCornerShape(6.dp))
+            .clickable(interactionSource = interactionSource, indication = null, onClick = onClick)
+            .padding(horizontal = 14.dp),
         contentAlignment = Alignment.Center
     ) {
         Row(
@@ -459,162 +615,332 @@ fun SkeuomorphicButton(
 }
 
 /**
- * 6. Leather Tag Category Selector
- * Looks like a physical leather bookmark tab attached to the page edge.
+ * 5. Glassy Aero Media Seek Slider
+ * Displays a glowing progress bar track, elapsed duration, and a glossy turquoise glass slider thumb.
  */
 @Composable
-fun SkeuomorphicLeatherTag(
-    text: String,
-    isSelected: Boolean,
-    onClick: () -> Unit,
+fun AeroSlider(
+    value: Float, // 0.0f to 1.0f
+    onValueChange: (Float) -> Unit,
     modifier: Modifier = Modifier,
-    activeColor: Color = Color(0xFFC2185B),
-    inactiveColor: Color = Color(0xFF78909C)
+    elapsedText: String = "00:00",
+    remainingText: String = "00:00"
 ) {
-    val offsetAnimation by animateDpAsState(
-        targetValue = if (isSelected) 4.dp else 0.dp,
-        label = "LeatherTagOffset"
-    )
-
+    val theme = LocalPlayerTheme.current
     Box(
         modifier = modifier
-            .offset(y = -offsetAnimation)
-            .width(64.dp)
-            .height(44.dp)
-            .drawBehind {
-                val shadowOffset = if (isSelected) 3.dp.toPx() else 1.dp.toPx()
-                // Cast Shadow
-                drawRoundRect(
-                    color = Color.Black.copy(alpha = 0.3f),
-                    topLeft = Offset(2.dp.toPx(), shadowOffset),
-                    size = size,
-                    cornerRadius = CornerRadius(4.dp.toPx())
+            .fillMaxWidth()
+            .padding(vertical = 4.dp)
+    ) {
+        Column {
+            // Track layout
+            BoxWithConstraints(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(24.dp)
+                    .pointerInput(Unit) {
+                        detectTapGestures { offset ->
+                            val width = this.size.width.toFloat()
+                            if (width > 0f) {
+                                val fraction = (offset.x / width).coerceIn(0f, 1f)
+                                onValueChange(fraction)
+                            }
+                        }
+                    }
+                    .pointerInput(Unit) {
+                        detectDragGestures { change, _ ->
+                            val width = this.size.width.toFloat()
+                            if (width > 0f) {
+                                val fraction = (change.position.x / width).coerceIn(0f, 1f)
+                                onValueChange(fraction)
+                                change.consume()
+                            }
+                        }
+                    }
+                    .drawBehind {
+                        val trackHeight = 6.dp.toPx()
+                        val y = size.height / 2 - trackHeight / 2
+                        val r = 3.dp.toPx()
+
+                        // 1. Dark Glass Slider Track Base
+                        drawRoundRect(
+                            color = Color(0x66000000),
+                            topLeft = Offset(0f, y),
+                            size = Size(size.width, trackHeight),
+                            cornerRadius = CornerRadius(r)
+                        )
+                        // Inner reflection line for track
+                        drawRoundRect(
+                            color = Color(0x15FFFFFF),
+                            topLeft = Offset(1.dp.toPx(), y + 1.dp.toPx()),
+                            size = Size(size.width - 2.dp.toPx(), trackHeight - 2.dp.toPx()),
+                            cornerRadius = CornerRadius(r)
+                        )
+
+                        // 2. Active Progress Glowing Green (Vista-style)
+                        val activeWidth = size.width * value
+                        if (activeWidth > 0) {
+                            drawRoundRect(
+                                brush = Brush.verticalGradient(
+                                    colors = listOf(theme.activeGreen, theme.secondaryGlow)
+                                ),
+                                topLeft = Offset(0f, y),
+                                size = Size(activeWidth, trackHeight),
+                                cornerRadius = CornerRadius(r)
+                            )
+                            // Bright horizontal core glint in progress bar
+                            drawLine(
+                                color = Color.White.copy(alpha = 0.5f),
+                                start = Offset(0f, y + 1.dp.toPx()),
+                                end = Offset(activeWidth, y + 1.dp.toPx()),
+                                strokeWidth = 1.dp.toPx()
+                            )
+                        }
+                    }
+            ) {
+                // Interactive Thumb
+                val maxPx = constraints.maxWidth.toFloat()
+                val thumbSize = 14.dp
+                val thumbOffset = (maxPx * value) - (thumbSize.value * LocalContext.current.resources.displayMetrics.density / 2)
+                
+                // Seek slider thumb (WMP 11 glossy orb thumb)
+                Box(
+                    modifier = Modifier
+                        .offset(x = (maxPx * value / (LocalContext.current.resources.displayMetrics.density)).dp - 7.dp)
+                        .align(Alignment.CenterStart)
+                        .size(14.dp, 14.dp)
+                        .drawBehind {
+                            val r = size.width / 2
+                            // Outer circle
+                            drawCircle(
+                                brush = Brush.radialGradient(
+                                    colors = listOf(Color.White, theme.primaryGlow, theme.secondaryGlow),
+                                    center = Offset(r, r),
+                                    radius = r
+                                )
+                            )
+                            // Glass crescent highlight
+                            drawCircle(
+                                color = Color.White.copy(alpha = 0.7f),
+                                radius = r * 0.4f,
+                                center = Offset(r * 0.7f, r * 0.7f)
+                            )
+                            // Outer drop ring
+                            drawCircle(
+                                color = Color(0x80000000),
+                                radius = r,
+                                style = Stroke(width = 0.8f.dp.toPx())
+                            )
+                        }
                 )
             }
-            .clip(RoundedCornerShape(topStart = 6.dp, topEnd = 6.dp))
-            .background(if (isSelected) activeColor else inactiveColor)
-            .clickable(onClick = onClick)
-            .padding(4.dp),
-        contentAlignment = Alignment.Center
-    ) {
-        Text(
-            text = text,
-            color = Color.White,
-            fontWeight = FontWeight.Bold,
-            fontSize = 11.sp,
-            textAlign = TextAlign.Center,
-            fontFamily = FontFamily.SansSerif
-        )
+
+            Spacer(modifier = Modifier.height(4.dp))
+
+            // Timers row (Classic Aero cyan fluorescent text)
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Text(
+                    text = elapsedText,
+                    color = theme.primaryGlow,
+                    fontSize = 11.sp,
+                    fontFamily = FontFamily.Monospace,
+                    fontWeight = FontWeight.Bold
+                )
+                Text(
+                    text = remainingText,
+                    color = Color.White.copy(alpha = 0.6f),
+                    fontSize = 11.sp,
+                    fontFamily = FontFamily.Monospace
+                )
+            }
+        }
     }
 }
 
 /**
- * 7. Skeuomorphic Paperclip Component
- * Draws a realistic, color-coded 3D paperclip overlapping the note page.
+ * 6. Live Moving Audio Visualizer Spectrum
+ * Visualizes the audio frequencies using 12 moving glassy bands that react automatically!
  */
 @Composable
-fun SkeuomorphicPaperclip(
-    category: String,
+fun AeroVisualizer(
+    isPlaying: Boolean,
+    style: String = "bars",
+    bandsCount: Int = 12,
     modifier: Modifier = Modifier
 ) {
-    val clipColor = when (category) {
-        "Work" -> Color(0xFF29B6F6) // Bright Sky Blue
-        "Personal" -> Color(0xFFEF5350) // Warm Red
-        "Ideas" -> Color(0xFFFFCA28) // Amber/Gold
-        "Tasks" -> Color(0xFF66BB6A) // Green
-        else -> Color(0xFFAB47BC) // Purple
+    val theme = LocalPlayerTheme.current
+
+    // Keep state tracking responsive to changes in bandsCount
+    val animStates = remember(bandsCount) {
+        List(bandsCount) { Animatable(0.1f) }
+    }
+    val peakStates = remember(bandsCount) {
+        List(bandsCount) { mutableStateOf(0.1f) }
     }
 
-    val clipColorDark = when (category) {
-        "Work" -> Color(0xFF0288D1)
-        "Personal" -> Color(0xFFD32F2F)
-        "Ideas" -> Color(0xFFF57C00)
-        "Tasks" -> Color(0xFF388E3C)
-        else -> Color(0xFF7B1FA2)
+    if (isPlaying) {
+        LaunchedEffect(key1 = isPlaying, key2 = bandsCount) {
+            while (isPlaying) {
+                for (i in 0 until bandsCount) {
+                    val nextVal = Random.nextFloat() * 0.85f + 0.15f
+                    launch {
+                        animStates[i].animateTo(
+                            targetValue = nextVal,
+                            animationSpec = tween(Random.nextInt(120, 240), easing = FastOutSlowInEasing)
+                        )
+                    }
+                }
+                delay(150)
+            }
+        }
+        // Peak decay effect loop
+        LaunchedEffect(key1 = isPlaying, key2 = bandsCount) {
+            while (isPlaying) {
+                for (i in 0 until bandsCount) {
+                    val currentVal = animStates[i].value
+                    val currentPeak = peakStates[i].value
+                    if (currentVal > currentPeak) {
+                        peakStates[i].value = currentVal
+                    } else {
+                        peakStates[i].value = maxOf(0.05f, currentPeak - 0.04f)
+                    }
+                }
+                delay(60)
+            }
+        }
+    } else {
+        // Slowly collapse bars back to 0.05
+        LaunchedEffect(key1 = isPlaying, key2 = bandsCount) {
+            for (i in 0 until bandsCount) {
+                launch {
+                    animStates[i].animateTo(
+                        targetValue = 0.05f,
+                        animationSpec = tween(500)
+                    )
+                }
+                peakStates[i].value = 0.05f
+            }
+        }
     }
 
     Canvas(
         modifier = modifier
-            .width(28.dp)
-            .height(54.dp)
+            .fillMaxWidth()
+            .height(60.dp)
+            .border(1.dp, Color(0x30FFFFFF), RoundedCornerShape(4.dp))
+            .background(Color(0x50000000), RoundedCornerShape(4.dp))
+            .padding(horizontal = 6.dp, vertical = 4.dp)
     ) {
-        val w = size.width
-        val h = size.height
+        val spacing = 4.dp.toPx()
+        val totalSpacing = spacing * (bandsCount - 1)
+        val barWidth = (size.width - totalSpacing) / bandsCount
 
-        // 1. Soft drop shadow cast onto paper
-        val shadowOffset = Offset(3.dp.toPx(), 4.dp.toPx())
-        val shadowPath = Path().apply {
-            moveTo(w * 0.35f + shadowOffset.x, h * 0.45f + shadowOffset.y)
-            lineTo(w * 0.35f + shadowOffset.x, h * 0.25f + shadowOffset.y)
-            cubicTo(
-                w * 0.35f + shadowOffset.x, h * 0.15f + shadowOffset.y,
-                w * 0.65f + shadowOffset.x, h * 0.15f + shadowOffset.y,
-                w * 0.65f + shadowOffset.x, h * 0.25f + shadowOffset.y
-            )
-            lineTo(w * 0.65f + shadowOffset.x, h * 0.75f + shadowOffset.y)
-            cubicTo(
-                w * 0.65f + shadowOffset.x, h * 0.90f + shadowOffset.y,
-                w * 0.15f + shadowOffset.x, h * 0.90f + shadowOffset.y,
-                w * 0.15f + shadowOffset.x, h * 0.75f + shadowOffset.y
-            )
-            lineTo(w * 0.15f + shadowOffset.x, h * 0.25f + shadowOffset.y)
-            cubicTo(
-                w * 0.15f + shadowOffset.x, h * 0.05f + shadowOffset.y,
-                w * 0.85f + shadowOffset.x, h * 0.05f + shadowOffset.y,
-                w * 0.85f + shadowOffset.x, h * 0.25f + shadowOffset.y
-            )
-            lineTo(w * 0.85f + shadowOffset.x, h * 0.55f + shadowOffset.y)
+        if (style == "bars") {
+            // --- DRAW BARS STYLE ---
+            for (i in 0 until bandsCount) {
+                val h = size.height * animStates[i].value
+                val x = i * (barWidth + spacing)
+                val y = size.height - h
+
+                // Dynamic gradient based on active theme
+                val gradient = Brush.verticalGradient(
+                    colors = listOf(
+                        theme.peakColor,           // Peak Top
+                        theme.primaryGlow,         // Active Mid
+                        theme.secondaryGlow        // Base
+                    ),
+                    startY = y,
+                    endY = size.height
+                )
+
+                // Draw visualizer bar
+                drawRoundRect(
+                    brush = gradient,
+                    topLeft = Offset(x, y),
+                    size = Size(barWidth, h),
+                    cornerRadius = CornerRadius(2.dp.toPx())
+                )
+
+                // Draw Peak Hold indicator block above the bar
+                val peakH = size.height * peakStates[i].value
+                val peakY = size.height - peakH
+                if (peakY < y - 2.dp.toPx()) {
+                    drawRect(
+                        color = theme.peakColor,
+                        topLeft = Offset(x, peakY),
+                        size = Size(barWidth, 2.dp.toPx())
+                    )
+                }
+
+                // Highlighting glossy line inside the visualizer bar
+                if (barWidth > 3f) {
+                    drawLine(
+                        color = Color.White.copy(alpha = 0.4f),
+                        start = Offset(x + 1.dp.toPx(), y + 1.dp.toPx()),
+                        end = Offset(x + 1.dp.toPx(), size.height),
+                        strokeWidth = 1.dp.toPx()
+                    )
+                }
+            }
+        } else {
+            // --- DRAW LINES / WAVE STYLE ---
+            val linePath = Path()
+            val points = mutableListOf<Offset>()
+
+            for (i in 0 until bandsCount) {
+                val h = size.height * animStates[i].value
+                val x = i * (barWidth + spacing) + barWidth / 2
+                val y = size.height - h
+                points.add(Offset(x, y))
+            }
+
+            if (points.isNotEmpty()) {
+                linePath.moveTo(points.first().x, points.first().y)
+                for (i in 1 until points.size) {
+                    val prev = points[i - 1]
+                    val curr = points[i]
+                    linePath.cubicTo(
+                        (prev.x + curr.x) / 2, prev.y,
+                        (prev.x + curr.x) / 2, curr.y,
+                        curr.x, curr.y
+                    )
+                }
+
+                // Draw smooth wave path
+                drawPath(
+                    path = linePath,
+                    brush = Brush.horizontalGradient(
+                        colors = listOf(theme.primaryGlow, theme.secondaryGlow, theme.primaryGlow)
+                    ),
+                    style = Stroke(width = 3.dp.toPx(), cap = StrokeCap.Round)
+                )
+
+                // Draw glowing aura under the path
+                val filledPath = Path().apply {
+                    addPath(linePath)
+                    lineTo(points.last().x, size.height)
+                    lineTo(points.first().x, size.height)
+                    close()
+                }
+                drawPath(
+                    path = filledPath,
+                    brush = Brush.verticalGradient(
+                        colors = listOf(theme.primaryGlow.copy(alpha = 0.25f), Color.Transparent)
+                    )
+                )
+
+                // Draw dots on peaks
+                for (pt in points) {
+                    drawCircle(
+                        color = theme.peakColor,
+                        radius = 3.dp.toPx(),
+                        center = pt
+                    )
+                }
+            }
         }
-        drawPath(
-            path = shadowPath,
-            color = Color.Black.copy(alpha = 0.25f),
-            style = Stroke(width = 4.dp.toPx(), cap = androidx.compose.ui.graphics.StrokeCap.Round)
-        )
-
-        // 2. Outer paperclip shape (with beveled/shiny metal effect)
-        val clipPath = Path().apply {
-            moveTo(w * 0.35f, h * 0.45f)
-            lineTo(w * 0.35f, h * 0.25f)
-            cubicTo(
-                w * 0.35f, h * 0.15f,
-                w * 0.65f, h * 0.15f,
-                w * 0.65f, h * 0.25f
-            )
-            lineTo(w * 0.65f, h * 0.75f)
-            cubicTo(
-                w * 0.65f, h * 0.90f,
-                w * 0.15f, h * 0.90f,
-                w * 0.15f, h * 0.75f
-            )
-            lineTo(w * 0.15f, h * 0.25f)
-            cubicTo(
-                w * 0.15f, h * 0.05f,
-                w * 0.85f, h * 0.05f,
-                w * 0.85f, h * 0.25f
-            )
-            lineTo(w * 0.85f, h * 0.55f)
-        }
-
-        // Clip Base
-        drawPath(
-            path = clipPath,
-            color = clipColorDark,
-            style = Stroke(width = 4.5f.dp.toPx(), cap = androidx.compose.ui.graphics.StrokeCap.Round)
-        )
-
-        // Clip Core Highlight (makes it look 3D and shiny)
-        drawPath(
-            path = clipPath,
-            color = clipColor,
-            style = Stroke(width = 3.dp.toPx(), cap = androidx.compose.ui.graphics.StrokeCap.Round)
-        )
-
-        // Highlight glint line
-        drawPath(
-            path = clipPath,
-            color = Color.White.copy(alpha = 0.6f),
-            style = Stroke(width = 1.dp.toPx(), cap = androidx.compose.ui.graphics.StrokeCap.Round)
-        )
     }
 }
-

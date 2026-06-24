@@ -1,8 +1,12 @@
 package com.example
 
+import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.Text
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onRoot
+import androidx.compose.ui.unit.dp
 import com.example.ui.theme.MyApplicationTheme
+import com.example.ui.AeroGlassWindow
 import com.github.takahirom.roborazzi.RobolectricDeviceQualifiers
 import com.github.takahirom.roborazzi.captureRoboImage
 import org.junit.Rule
@@ -21,7 +25,17 @@ class GreetingScreenshotTest {
 
   @Test
   fun greeting_screenshot() {
-    composeTestRule.setContent { MyApplicationTheme { Greeting("Robolectric") } }
+    composeTestRule.setContent {
+        MyApplicationTheme {
+            AeroGlassWindow(title = "Aero Glass Preview") {
+                Text(
+                    text = "Welcome to Urban Player!",
+                    color = androidx.compose.ui.graphics.Color.White,
+                    modifier = androidx.compose.ui.Modifier.padding(16.dp)
+                )
+            }
+        }
+    }
 
     composeTestRule.onRoot().captureRoboImage(filePath = "src/test/screenshots/greeting.png")
   }

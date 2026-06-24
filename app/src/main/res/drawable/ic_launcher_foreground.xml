@@ -3,6 +3,6 @@
     <item
         android:width="66dp"
         android:height="66dp"
-        android:drawable="@drawable/skeuopad_icon_1782278097558"
+        android:drawable="@drawable/glassy_music_icon_1782295967943"
         android:gravity="center" />
 </layer-list>
